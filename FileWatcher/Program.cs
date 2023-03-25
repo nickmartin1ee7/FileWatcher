@@ -88,7 +88,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                 fw.NotifyFilter = NotifyFilters.FileName;
                 fw.Created += (o, e) =>
                 {
-                    logger.LogInformation("Observed new File Created: {fileName}", e.Name);
+                    logger.LogDebug("Observed new File Created: {fileName}", e.Name);
                     processQueue.Enqueue(new FileInfo(e.FullPath));
                 };
             }

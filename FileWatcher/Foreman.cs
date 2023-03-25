@@ -91,7 +91,7 @@ public class Foreman : BackgroundService
             if (!_processQueue.TryDequeue(out var file))
                 continue;
 
-            _logger.LogInformation("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
+            _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
 
             try
             {
