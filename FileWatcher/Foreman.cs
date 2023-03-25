@@ -11,6 +11,7 @@ public class Foreman : BackgroundService
     private readonly Task[] _workers;
     private readonly DirectoryInfo _input;
     private readonly DirectoryInfo _output;
+    private readonly object _foremanJobLock = new();
 
     private static int ThreadId => Environment.CurrentManagedThreadId;
 
@@ -80,29 +81,35 @@ public class Foreman : BackgroundService
 
     private void ForemanJob()
     {
-        try
+        lock (_foremanJobLock)
         {
-            ValidatePath(_settings.InputPath);
-            ValidatePath(_settings.OutputPath);
-
-            int enqueued = 0;
-            var files = _input.EnumerateFiles(_settings.FileFilter).ToArray();
-
-            foreach (var file in files)
+            try
             {
-                if (!_processQueue.Contains(file))
-                {
-                    _processQueue.Enqueue(file);
-                    enqueued++;
-                }
-            }
+                ValidatePath(_settings.InputPath);
+                ValidatePath(_settings.OutputPath);
 
-            if (files.Any())
-                _logger.LogInformation("Foreman on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}", ThreadId, files.Length, enqueued, DateTimeOffset.Now);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError("Foreman on Thread Id {threadId} failed to perform job due to {error} at: {time}", ThreadId, e, DateTimeOffset.Now);
+                int enqueued = 0;
+                var files = _input.EnumerateFiles(_settings.FileFilter).ToArray();
+
+                foreach (var file in files)
+                {
+                    if (!_processQueue.Contains(file))
+                    {
+                        _processQueue.Enqueue(file);
+                        enqueued++;
+                    }
+                }
+
+                if (files.Any())
+                    _logger.LogInformation(
+                        "Foreman on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}",
+                        ThreadId, files.Length, enqueued, DateTimeOffset.Now);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("Foreman on Thread Id {threadId} failed to perform job due to {error} at: {time}",
+                    ThreadId, e, DateTimeOffset.Now);
+            }
         }
     }
 
