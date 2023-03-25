@@ -11,15 +11,15 @@ IHost host = Host.CreateDefaultBuilder(args)
                 .Get<Settings>()
                 ?? throw new InvalidOperationException("Settings is missing from configuration"));
 
-        services.AddSingleton<ProcessQueue>();
-
+        services.AddSingleton<FileProcessQueue>();
+        services.AddSingleton<FileHandler>();
         services.AddSingleton<PathValidator>();
 
         services.AddSingleton<FileSystemWatcher>(sp =>
         {
             var settings = sp.GetRequiredService<Settings>();
             var logger = sp.GetRequiredService<ILogger<FileSystemWatcher>>();
-            var processQueue = sp.GetRequiredService<ProcessQueue>();
+            var processQueue = sp.GetRequiredService<FileProcessQueue>();
             var pathValidator = sp.GetRequiredService<PathValidator>();
 
             pathValidator.Validate(settings.InputPath);
@@ -46,6 +46,6 @@ IHost host = Host.CreateDefaultBuilder(args)
 
 await host.RunAsync();
 
-public class ProcessQueue : ConcurrentQueue<FileInfo>
+public class FileProcessQueue : ConcurrentQueue<FileInfo>
 {
 }

@@ -6,12 +6,12 @@ public class Foreman : BackgroundService
 {
     private readonly ILogger<Foreman> _logger;
     private readonly Settings _settings;
-    private readonly ProcessQueue _processQueue;
+    private readonly FileProcessQueue _fileProcessQueue;
     private readonly FileSystemWatcher _fileSystemWatcher;
     private readonly Task[] _workers;
     private readonly DirectoryInfo _input;
-    private readonly DirectoryInfo _output;
     private readonly PathValidator _pathValidator;
+    private readonly FileHandler _fileHandler;
     private readonly object _foremanJobLock = new();
 
     private static int ThreadId => Environment.CurrentManagedThreadId;
@@ -19,18 +19,19 @@ public class Foreman : BackgroundService
     public Foreman(
         ILogger<Foreman> logger,
         Settings settings,
-        ProcessQueue processQueue,
+        FileProcessQueue fileProcessQueue,
         FileSystemWatcher fileSystemWatcher,
-        PathValidator pathValidator)
+        PathValidator pathValidator,
+        FileHandler fileHandler)
     {
         _logger = logger;
         _settings = settings;
-        _processQueue = processQueue;
+        _fileProcessQueue = fileProcessQueue;
         _fileSystemWatcher = fileSystemWatcher;
         _pathValidator = pathValidator;
+        _fileHandler = fileHandler;
 
         _input = new DirectoryInfo(_settings.InputPath);
-        _output = new DirectoryInfo(_settings.OutputPath);
         _workers = new Task[_settings.Workers];
     }
 
@@ -73,10 +74,10 @@ public class Foreman : BackgroundService
                 Parallel.ForEach(files, (file) =>
                 {
 
-                    if (_processQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null)
+                    if (_fileProcessQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null)
                         return;
 
-                    _processQueue.Enqueue(file);
+                    _fileProcessQueue.Enqueue(file);
                     enqueued++;
                 });
 
@@ -112,7 +113,7 @@ public class Foreman : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (!_processQueue.TryDequeue(out var file))
+            if (!_fileProcessQueue.TryDequeue(out var file))
             {
                 await Task.Delay(1);
                 continue;
@@ -128,15 +129,14 @@ public class Foreman : BackgroundService
                     continue;
                 }
 
-                // Processing here
-                file.MoveTo(Path.Combine(_output.FullName, file.Name), true);
+                _fileHandler.Handle(file);
 
                 _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
             }
             catch (Exception e)
             {
                 _logger.LogWarning("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, ThreadId, e.Message, file.Name, DateTimeOffset.Now);
-                _processQueue.Enqueue(file);
+                _fileProcessQueue.Enqueue(file);
             }
         }
 
