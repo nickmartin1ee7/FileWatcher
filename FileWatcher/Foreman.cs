@@ -1,3 +1,5 @@
+using Timer = System.Timers.Timer;
+
 namespace FileWatcher;
 
 public class Foreman : BackgroundService
@@ -32,40 +34,75 @@ public class Foreman : BackgroundService
     {
         _logger.LogInformation("Foreman on Thread Id {threadId} started at: {time}", ThreadId, DateTimeOffset.Now);
 
+        var foremanTimer = new Timer(TimeSpan.FromSeconds(_settings.ForemanJobInSeconds).TotalMilliseconds);
+        foremanTimer.Elapsed += (_, _) =>
+            ForemanJob();
+
         try
         {
             StartWorkers(stoppingToken);
-            InitialScanInput();
-
+            foremanTimer.Start();
             _fileSystemWatcher.EnableRaisingEvents = true;
 
             await Task.Delay(-1, stoppingToken);
-
         }
         catch (TaskCanceledException)
         {
         }
 
+        foremanTimer.Stop();
         _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
     }
 
-    private void InitialScanInput()
+    void ValidatePath(string path)
     {
+        var directory = new DirectoryInfo(path);
+
         try
         {
-            var initialFiles = _input.EnumerateFiles(_settings.FileFilter).ToArray();
 
-            foreach (var file in initialFiles)
+            if (!directory.Exists)
             {
-                _processQueue.Enqueue(file);
+                _logger.LogInformation("Created {path} since it did not exist", directory.FullName);
+                directory.Create();
             }
 
-            if (initialFiles.Any())
-                _logger.LogInformation("Foreman on Thread Id {threadId} found {initialFileCount} initial files at: {time}", ThreadId, initialFiles.Length, DateTimeOffset.Now);
+            var testFile = new FileInfo(Path.Combine(directory.FullName, "test_file"));
+            testFile.Create().Close();
+            testFile.Delete();
         }
         catch (Exception e)
         {
-            _logger.LogError("Foreman on Thread Id {threadId} failed to perform initial scan due to {error} at: {time}", ThreadId, e, DateTimeOffset.Now);
+            _logger.LogError("Failed to validate path for {path} due to {error}", directory.FullName, e);
+        }
+    }
+
+
+    private void ForemanJob()
+    {
+        try
+        {
+            ValidatePath(_settings.InputPath);
+            ValidatePath(_settings.OutputPath);
+
+            int enqueued = 0;
+            var files = _input.EnumerateFiles(_settings.FileFilter).ToArray();
+
+            foreach (var file in files)
+            {
+                if (!_processQueue.Contains(file))
+                {
+                    _processQueue.Enqueue(file);
+                    enqueued++;
+                }
+            }
+
+            if (files.Any())
+                _logger.LogInformation("Foreman on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}", ThreadId, files.Length, enqueued, DateTimeOffset.Now);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError("Foreman on Thread Id {threadId} failed to perform job due to {error} at: {time}", ThreadId, e, DateTimeOffset.Now);
         }
     }
 
