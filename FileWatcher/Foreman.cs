@@ -80,16 +80,19 @@ public class Foreman : BackgroundService
     }
 
     private Task CreateWorker(int workerId, CancellationToken stoppingToken) =>
-        Task.Run(() => WorkerJob(workerId, stoppingToken));
+        Task.Run(async () => await WorkerJobAsync(workerId, stoppingToken));
 
-    private void WorkerJob(int workerId, CancellationToken stoppingToken)
+    private async Task WorkerJobAsync(int workerId, CancellationToken stoppingToken)
     {
         _logger.LogInformation("Worker {workerId} on Thread Id {threadId} started at: {time}", workerId, ThreadId, DateTimeOffset.Now);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             if (!_processQueue.TryDequeue(out var file))
+            {
+                await Task.Delay(1);
                 continue;
+            }
 
             _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
 
