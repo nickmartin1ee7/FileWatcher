@@ -39,7 +39,7 @@ public class Foreman : BackgroundService
     {
         _logger.LogInformation("Foreman on Thread Id {threadId} started at: {time}", ThreadId, DateTimeOffset.Now);
 
-        var foremanTimer = new Timer(TimeSpan.FromSeconds(_settings.ForemanJobInSeconds).TotalMilliseconds);
+        var foremanTimer = new Timer(_settings.ForemanJobInMilliSeconds);
         foremanTimer.Elapsed += (_, _) =>
             ForemanJob();
 
@@ -87,14 +87,15 @@ public class Foreman : BackgroundService
                 Parallel.ForEach(files, (file) =>
                 {
 
-                    if (_fileProcessQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null)
+                    if (_fileProcessQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null // Is new file
+                        || file.CreationTime.AddMilliseconds(_settings.LateFileInMilliSeconds) > DateTime.Now) // Is late
                         return;
 
                     _fileProcessQueue.Enqueue(file);
                     enqueued++;
                 });
 
-                if (files.Any())
+                if (enqueued > 0)
                     _logger.LogInformation(
                         "Foreman on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}",
                         ThreadId, files.Length, enqueued, DateTimeOffset.Now);
@@ -125,18 +126,30 @@ public class Foreman : BackgroundService
             {
                 if (!File.Exists(file.FullName))
                 {
-                    _logger.LogDebug("Worker {workerId} on Thread Id {threadId} found that the file {fileName} no longer exists at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
+                    _logger.LogDebug(
+                        "Worker {workerId} on Thread Id {threadId} found that the file {fileName} no longer exists at: {time}",
+                        workerId, ThreadId, file.Name, DateTimeOffset.Now);
                     continue;
                 }
 
                 _fileHandler.Handle(file);
 
-                _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
+                _logger.LogDebug(
+                    "Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}",
+                    workerId, ThreadId, file.Name, DateTimeOffset.Now);
+            }
+            catch (IOException ioException)
+            {
+                _logger.LogWarning(
+                    "Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}",
+                    workerId, ThreadId, ioException.Message, file.Name, DateTimeOffset.Now);
+                _fileProcessQueue.Enqueue(file);
             }
             catch (Exception e)
             {
-                _logger.LogWarning("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, ThreadId, e.Message, file.Name, DateTimeOffset.Now);
-                _fileProcessQueue.Enqueue(file);
+                _logger.LogError(
+                    "Worker {workerId} on Thread Id {threadId} failed due to {error} trying to handle file {fileName} at: {time}",
+                    workerId, ThreadId, e, file.Name, DateTimeOffset.Now);
             }
         }
 

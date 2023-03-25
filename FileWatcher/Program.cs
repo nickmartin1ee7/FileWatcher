@@ -31,7 +31,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 
             void ConfigureFileWatcher()
             {
-                fw.NotifyFilter = NotifyFilters.FileName;
+                fw.NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime;
                 fw.Created += (o, e) =>
                 {
                     logger.LogDebug("Observed new File Created: {fileName}", e.Name);
