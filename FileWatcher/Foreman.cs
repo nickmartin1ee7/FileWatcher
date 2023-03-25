@@ -59,6 +59,19 @@ public class Foreman : BackgroundService
         _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
     }
 
+    private void StartWorkers(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Foreman on Thread Id {threadId} enlisting {workerCount} workers at: {time}", ThreadId, _workers.Length, DateTimeOffset.Now);
+
+        for (int i = 0; i < _workers.Length; i++)
+        {
+            _workers[i] = CreateWorker(i + 1, stoppingToken);
+        }
+    }
+
+    private Task CreateWorker(int workerId, CancellationToken stoppingToken) =>
+        Task.Run(async () => await WorkerJobAsync(workerId, stoppingToken));
+
     private void ForemanJob()
     {
         lock (_foremanJobLock)
@@ -93,19 +106,6 @@ public class Foreman : BackgroundService
             }
         }
     }
-
-    private void StartWorkers(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("Foreman on Thread Id {threadId} enlisting {workerCount} workers at: {time}", ThreadId, _workers.Length, DateTimeOffset.Now);
-
-        for (int i = 0; i < _workers.Length; i++)
-        {
-            _workers[i] = CreateWorker(i + 1, stoppingToken);
-        }
-    }
-
-    private Task CreateWorker(int workerId, CancellationToken stoppingToken) =>
-        Task.Run(async () => await WorkerJobAsync(workerId, stoppingToken));
 
     private async Task WorkerJobAsync(int workerId, CancellationToken stoppingToken)
     {
