@@ -13,12 +13,16 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<ProcessQueue>();
 
+        services.AddSingleton<PathValidator>();
+
         services.AddSingleton<FileSystemWatcher>(sp =>
         {
             var settings = sp.GetRequiredService<Settings>();
             var logger = sp.GetRequiredService<ILogger<FileSystemWatcher>>();
             var processQueue = sp.GetRequiredService<ProcessQueue>();
+            var pathValidator = sp.GetRequiredService<PathValidator>();
 
+            pathValidator.Validate(settings.InputPath);
             var fw = new FileSystemWatcher(settings.InputPath, settings.FileFilter);
 
             ConfigureFileWatcher();

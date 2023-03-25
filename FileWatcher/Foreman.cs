@@ -11,6 +11,7 @@ public class Foreman : BackgroundService
     private readonly Task[] _workers;
     private readonly DirectoryInfo _input;
     private readonly DirectoryInfo _output;
+    private readonly PathValidator _pathValidator;
     private readonly object _foremanJobLock = new();
 
     private static int ThreadId => Environment.CurrentManagedThreadId;
@@ -19,12 +20,14 @@ public class Foreman : BackgroundService
         ILogger<Foreman> logger,
         Settings settings,
         ProcessQueue processQueue,
-        FileSystemWatcher fileSystemWatcher)
+        FileSystemWatcher fileSystemWatcher,
+        PathValidator pathValidator)
     {
         _logger = logger;
         _settings = settings;
         _processQueue = processQueue;
         _fileSystemWatcher = fileSystemWatcher;
+        _pathValidator = pathValidator;
 
         _input = new DirectoryInfo(_settings.InputPath);
         _output = new DirectoryInfo(_settings.OutputPath);
@@ -55,50 +58,27 @@ public class Foreman : BackgroundService
         _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
     }
 
-    void ValidatePath(string path)
-    {
-        var directory = new DirectoryInfo(path);
-
-        try
-        {
-
-            if (!directory.Exists)
-            {
-                _logger.LogInformation("Created {path} since it did not exist", directory.FullName);
-                directory.Create();
-            }
-
-            var testFile = new FileInfo(Path.Combine(directory.FullName, "test_file"));
-            testFile.Create().Close();
-            testFile.Delete();
-        }
-        catch (Exception e)
-        {
-            _logger.LogError("Failed to validate path for {path} due to {error}", directory.FullName, e);
-        }
-    }
-
-
     private void ForemanJob()
     {
         lock (_foremanJobLock)
         {
             try
             {
-                ValidatePath(_settings.InputPath);
-                ValidatePath(_settings.OutputPath);
+                _pathValidator.Validate(_settings.InputPath);
+                _pathValidator.Validate(_settings.OutputPath);
 
                 int enqueued = 0;
                 var files = _input.EnumerateFiles(_settings.FileFilter).ToArray();
 
-                foreach (var file in files)
+                Parallel.ForEach(files, (file) =>
                 {
-                    if (!_processQueue.Contains(file))
-                    {
-                        _processQueue.Enqueue(file);
-                        enqueued++;
-                    }
-                }
+
+                    if (_processQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null)
+                        return;
+
+                    _processQueue.Enqueue(file);
+                    enqueued++;
+                });
 
                 if (files.Any())
                     _logger.LogInformation(
@@ -155,7 +135,7 @@ public class Foreman : BackgroundService
             }
             catch (Exception e)
             {
-                _logger.LogError("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, ThreadId, e, file.Name, DateTimeOffset.Now);
+                _logger.LogWarning("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, ThreadId, e.Message, file.Name, DateTimeOffset.Now);
                 _processQueue.Enqueue(file);
             }
         }
