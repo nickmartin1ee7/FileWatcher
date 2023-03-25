@@ -10,7 +10,7 @@ public class Foreman : BackgroundService
     private readonly DirectoryInfo _input;
     private readonly DirectoryInfo _output;
 
-    private int _threadId => Environment.CurrentManagedThreadId;
+    private static int ThreadId => Environment.CurrentManagedThreadId;
 
     public Foreman(
         ILogger<Foreman> logger,
@@ -30,12 +30,12 @@ public class Foreman : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Foreman on Thread Id {threadId} started at: {time}", _threadId, DateTimeOffset.Now);
+        _logger.LogInformation("Foreman on Thread Id {threadId} started at: {time}", ThreadId, DateTimeOffset.Now);
 
         try
         {
-            InitialScanInput();
             StartWorkers(stoppingToken);
+            InitialScanInput();
 
             _fileSystemWatcher.EnableRaisingEvents = true;
 
@@ -46,7 +46,7 @@ public class Foreman : BackgroundService
         {
         }
 
-        _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", _threadId, DateTimeOffset.Now);
+        _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
     }
 
     private void InitialScanInput()
@@ -61,17 +61,17 @@ public class Foreman : BackgroundService
             }
 
             if (initialFiles.Any())
-                _logger.LogInformation("Foreman on Thread Id {threadId} found {initialFileCount} initial files at: {time}", _threadId, initialFiles.Length, DateTimeOffset.Now);
+                _logger.LogInformation("Foreman on Thread Id {threadId} found {initialFileCount} initial files at: {time}", ThreadId, initialFiles.Length, DateTimeOffset.Now);
         }
         catch (Exception e)
         {
-            _logger.LogError("Foreman on Thread Id {threadId} failed to perform initial scan due to {error} at: {time}", _threadId, e, DateTimeOffset.Now);
+            _logger.LogError("Foreman on Thread Id {threadId} failed to perform initial scan due to {error} at: {time}", ThreadId, e, DateTimeOffset.Now);
         }
     }
 
     private void StartWorkers(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Foreman on Thread Id {threadId} enlisting {workerCount} workers at: {time}", _threadId, _workers.Length, DateTimeOffset.Now);
+        _logger.LogInformation("Foreman on Thread Id {threadId} enlisting {workerCount} workers at: {time}", ThreadId, _workers.Length, DateTimeOffset.Now);
 
         for (int i = 0; i < _workers.Length; i++)
         {
@@ -84,35 +84,35 @@ public class Foreman : BackgroundService
 
     private void WorkerJob(int workerId, CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} started at: {time}", workerId, _threadId, DateTimeOffset.Now);
+        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} started at: {time}", workerId, ThreadId, DateTimeOffset.Now);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             if (!_processQueue.TryDequeue(out var file))
                 continue;
 
-            _logger.LogInformation("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, _threadId, file.Name, DateTimeOffset.Now);
+            _logger.LogInformation("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
 
             try
             {
                 if (!File.Exists(file.FullName))
                 {
-                    _logger.LogDebug("Worker {workerId} on Thread Id {threadId} found that the file {fileName} no longer exists at: {time}", workerId, _threadId, file.Name, DateTimeOffset.Now);
+                    _logger.LogDebug("Worker {workerId} on Thread Id {threadId} found that the file {fileName} no longer exists at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
                     continue;
                 }
 
                 // Processing here
                 file.MoveTo(Path.Combine(_output.FullName, file.Name), true);
 
-                _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}", workerId, _threadId, file.Name, DateTimeOffset.Now);
+                _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
             }
             catch (Exception e)
             {
-                _logger.LogError("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, _threadId, e, file.Name, DateTimeOffset.Now);
+                _logger.LogError("Worker {workerId} on Thread Id {threadId} failed due to {error} and is re-enqueueing file {fileName} at: {time}", workerId, ThreadId, e, file.Name, DateTimeOffset.Now);
                 _processQueue.Enqueue(file);
             }
         }
 
-        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} ended at: {time}", workerId, _threadId, DateTimeOffset.Now);
+        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} ended at: {time}", workerId, ThreadId, DateTimeOffset.Now);
     }
 }
