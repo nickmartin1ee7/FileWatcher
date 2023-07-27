@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 using FileWatcher;
 
 IHost host = Host.CreateDefaultBuilder(args)
@@ -11,6 +9,7 @@ IHost host = Host.CreateDefaultBuilder(args)
                 .Get<Settings>()
                 ?? throw new InvalidOperationException("Settings is missing from configuration"));
 
+        services.AddSingleton<IProcessor<string>, TextProcessor>();
         services.AddSingleton<FileProcessQueue>();
         services.AddSingleton<FileHandler>();
         services.AddSingleton<PathValidator>();
@@ -45,7 +44,3 @@ IHost host = Host.CreateDefaultBuilder(args)
     .Build();
 
 await host.RunAsync();
-
-public class FileProcessQueue : ConcurrentQueue<FileInfo>
-{
-}

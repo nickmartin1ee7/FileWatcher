@@ -6,20 +6,26 @@ public class FileHandler
 {
     private const string SUFFIX = " (Copy)";
 
+    private readonly IProcessor<string> _processor;
+
     private readonly DirectoryInfo _output;
 
-    public FileHandler(Settings settings)
+    public FileHandler(Settings settings, IProcessor<string> processor)
     {
+        _processor = processor;
         _output = new DirectoryInfo(settings.OutputPath);
     }
 
     /// <summary>
-    /// This method is the business logic in the application that handles processing a new file.
+    /// This method is the business logic in the application and handle moving the newly processed file.
     /// </summary>
     /// <param name="file">A newly detected file.</param>
     /// <param name="replaceDuplicates">Whether to overwrite the file if it already exists.</param>
-    public void Handle(FileInfo file, bool replaceDuplicates)
+    public async Task HandleAsync(FileInfo file, bool replaceDuplicates)
     {
+        // Execute business logic
+        await _processor.ExecuteAsync(await File.ReadAllTextAsync(file.FullName));
+
         // Overwrite
         if (replaceDuplicates)
         {
