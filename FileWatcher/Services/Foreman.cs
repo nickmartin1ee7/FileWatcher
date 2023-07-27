@@ -1,6 +1,6 @@
 using Timer = System.Timers.Timer;
 
-namespace FileWatcher;
+namespace FileWatcher.Services;
 
 public class Foreman : BackgroundService
 {

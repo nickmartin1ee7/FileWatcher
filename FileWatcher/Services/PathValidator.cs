@@ -1,4 +1,4 @@
-namespace FileWatcher;
+namespace FileWatcher.Services;
 
 public class PathValidator
 {

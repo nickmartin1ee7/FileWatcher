@@ -1,4 +1,5 @@
 using FileWatcher;
+using FileWatcher.Services;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace FileWatcher;
+namespace FileWatcher.Services;
 
 public class FileProcessQueue : ConcurrentQueue<FileInfo>
 {
