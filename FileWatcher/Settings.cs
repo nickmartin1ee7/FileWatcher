@@ -3,6 +3,10 @@
     public class Settings
     {
         /// <summary>
+        /// This is whether to replace newly discovered files that have the same name as an existing file in the output directory.
+        /// </summary>
+        public bool ReplaceDuplicates { get; set; }
+        /// <summary>
         /// This is the file path being monitored for new files.
         /// </summary>
         public string InputPath { get; set; } = null!;

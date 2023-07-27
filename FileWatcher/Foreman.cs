@@ -132,7 +132,7 @@ public class Foreman : BackgroundService
                     continue;
                 }
 
-                _fileHandler.Handle(file);
+                _fileHandler.Handle(file, _settings.ReplaceDuplicates);
 
                 _logger.LogDebug(
                     "Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}",
