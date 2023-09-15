@@ -80,7 +80,6 @@ public class MonitorService : BackgroundService
             {
                 _pathValidator.Validate(_settings.InputPath);
                 _pathValidator.Validate(_settings.OutputPath);
-                _pathValidator.Validate(_settings.ErrorPath);
 
                 int enqueued = 0;
                 var files = _input.EnumerateFiles(_settings.FileFilter).ToArray();
@@ -153,9 +152,6 @@ public class MonitorService : BackgroundService
                 _logger.LogError(
                     "Worker {workerId} on Thread Id {threadId} failed due to {error} trying to handle file {fileName} at: {time}",
                     workerId, ThreadId, e, file.Name, DateTimeOffset.Now);
-
-                if (_settings.ReprocessErrors)
-                    _fileProcessQueue.Enqueue(file);
             }
         }
 

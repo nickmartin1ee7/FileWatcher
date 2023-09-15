@@ -17,6 +17,9 @@ public class TextProcessor : IProcessor<string>
         ? "Nothing!"
         : Convert.ToBase64String(Encoding.UTF8.GetBytes(item));
 
+        if (Random.Shared.Next() % 2 == 0)
+            throw new ArithmeticException("Whoops! Something went wrong.");
+
         _logger.LogInformation("Processed data: {data}",
             data);
 

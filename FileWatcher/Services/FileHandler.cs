@@ -9,14 +9,12 @@ public class FileHandler
     private readonly ILogger<FileHandler> _logger;
     private readonly IProcessor<string> _processor;
     private readonly DirectoryInfo _outputPath;
-    private readonly DirectoryInfo _errorPath;
 
     public FileHandler(ILogger<FileHandler> logger, Settings settings, IProcessor<string> processor)
     {
         _logger = logger;
         _processor = processor;
         _outputPath = new DirectoryInfo(settings.OutputPath);
-        _errorPath = new DirectoryInfo(settings.ErrorPath);
     }
 
     /// <summary>
@@ -26,20 +24,7 @@ public class FileHandler
     /// <param name="replaceDuplicates">Whether to overwrite the file if it already exists.</param>
     public async Task HandleAsync(FileInfo file, bool replaceDuplicates)
     {
-        try
-        {
-            // Execute business logic
-            await _processor.ExecuteAsync(await File.ReadAllTextAsync(file.FullName));
-        }
-        catch (Exception)
-        {
-            // Move failed processed file to error path
-            MoveFinishedFile(file, _errorPath, replaceDuplicates);
-
-            throw;
-        }
-
-        // Move successully processed file to output path
+        await _processor.ExecuteAsync(await File.ReadAllTextAsync(file.FullName));
         MoveFinishedFile(file, _outputPath, replaceDuplicates);
     }
 
