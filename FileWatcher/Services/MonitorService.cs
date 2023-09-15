@@ -2,9 +2,9 @@ using Timer = System.Timers.Timer;
 
 namespace FileWatcher.Services;
 
-public class Foreman : BackgroundService
+public class MonitorService : BackgroundService
 {
-    private readonly ILogger<Foreman> _logger;
+    private readonly ILogger<MonitorService> _logger;
     private readonly Settings _settings;
     private readonly FileProcessQueue _fileProcessQueue;
     private readonly FileSystemWatcher _fileSystemWatcher;
@@ -12,12 +12,12 @@ public class Foreman : BackgroundService
     private readonly DirectoryInfo _input;
     private readonly PathValidator _pathValidator;
     private readonly FileHandler _fileHandler;
-    private readonly object _foremanJobLock = new();
+    private readonly object _monitorServiceJobLock = new();
 
     private static int ThreadId => Environment.CurrentManagedThreadId;
 
-    public Foreman(
-        ILogger<Foreman> logger,
+    public MonitorService(
+        ILogger<MonitorService> logger,
         Settings settings,
         FileProcessQueue fileProcessQueue,
         FileSystemWatcher fileSystemWatcher,
@@ -37,16 +37,16 @@ public class Foreman : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Foreman on Thread Id {threadId} started at: {time}", ThreadId, DateTimeOffset.Now);
+        _logger.LogInformation("Monitor Service on Thread Id {threadId} started at: {time}", ThreadId, DateTimeOffset.Now);
 
-        var foremanTimer = new Timer(_settings.ForemanJobInMilliSeconds);
-        foremanTimer.Elapsed += (_, _) =>
-            ForemanJob();
+        var monitorServiceTimer = new Timer(_settings.RescanJobInMilliSeconds);
+        monitorServiceTimer.Elapsed += (_, _) =>
+            MonitorServiceJob();
 
         try
         {
             StartWorkers(stoppingToken);
-            foremanTimer.Start();
+            monitorServiceTimer.Start();
             _fileSystemWatcher.EnableRaisingEvents = true;
 
             await Task.Delay(-1, stoppingToken);
@@ -55,13 +55,13 @@ public class Foreman : BackgroundService
         {
         }
 
-        foremanTimer.Stop();
-        _logger.LogInformation("Foreman on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
+        monitorServiceTimer.Stop();
+        _logger.LogInformation("Monitor Service on Thread Id {threadId} stopped at: {time}", ThreadId, DateTimeOffset.Now);
     }
 
     private void StartWorkers(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Foreman on Thread Id {threadId} enlisting {workerCount} workers at: {time}", ThreadId, _workers.Length, DateTimeOffset.Now);
+        _logger.LogInformation("Monitor Service on Thread Id {threadId} enlisting {workerCount} workers at: {time}", ThreadId, _workers.Length, DateTimeOffset.Now);
 
         for (int i = 0; i < _workers.Length; i++)
         {
@@ -72,9 +72,9 @@ public class Foreman : BackgroundService
     private Task CreateWorker(int workerId, CancellationToken stoppingToken) =>
         Task.Run(async () => await WorkerJobAsync(workerId, stoppingToken));
 
-    private void ForemanJob()
+    private void MonitorServiceJob()
     {
-        lock (_foremanJobLock)
+        lock (_monitorServiceJobLock)
         {
             try
             {
@@ -88,7 +88,7 @@ public class Foreman : BackgroundService
                 {
 
                     if (_fileProcessQueue.FirstOrDefault(enqueuedFile => enqueuedFile.FullName == file.FullName) is not null // Is new file
-                        || file.CreationTime.AddMilliseconds(_settings.LateFileInMilliSeconds) > DateTime.Now) // Is late
+                        || file.CreationTime.AddMilliseconds(_settings.MaxFileTruancyInMilliSeconds) > DateTime.Now) // Is late to being processed
                         return;
 
                     _fileProcessQueue.Enqueue(file);
@@ -97,12 +97,12 @@ public class Foreman : BackgroundService
 
                 if (enqueued > 0)
                     _logger.LogInformation(
-                        "Foreman on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}",
+                        "Monitor Service on Thread Id {threadId} found {initialFileCount} files and enqueued {enqueuedFileCount} of them at: {time}",
                         ThreadId, files.Length, enqueued, DateTimeOffset.Now);
             }
             catch (Exception e)
             {
-                _logger.LogError("Foreman on Thread Id {threadId} failed to perform job due to {error} at: {time}",
+                _logger.LogError("Monitor Service on Thread Id {threadId} failed to perform job due to {error} at: {time}",
                     ThreadId, e, DateTimeOffset.Now);
             }
         }
@@ -110,7 +110,8 @@ public class Foreman : BackgroundService
 
     private async Task WorkerJobAsync(int workerId, CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} started at: {time}", workerId, ThreadId, DateTimeOffset.Now);
+        _logger.LogInformation("Worker {workerId} on Thread Id {threadId} started at: {time}",
+            workerId, ThreadId, DateTimeOffset.Now);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -120,7 +121,8 @@ public class Foreman : BackgroundService
                 continue;
             }
 
-            _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}", workerId, ThreadId, file.Name, DateTimeOffset.Now);
+            _logger.LogDebug("Worker {workerId} on Thread Id {threadId} is processing file {fileName} at: {time}",
+                workerId, ThreadId, file.Name, DateTimeOffset.Now);
 
             try
             {
@@ -132,7 +134,7 @@ public class Foreman : BackgroundService
                     continue;
                 }
 
-                _fileHandler.HandleAsync(file, _settings.ReplaceDuplicates);
+                await _fileHandler.HandleAsync(file, _settings.ReplaceDuplicates);
 
                 _logger.LogDebug(
                     "Worker {workerId} on Thread Id {threadId} is finished processing file {fileName} at: {time}",

@@ -1,5 +1,6 @@
 using FileWatcher;
 using FileWatcher.Services;
+using FileWatcher.Services.Processors;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
@@ -40,7 +41,7 @@ IHost host = Host.CreateDefaultBuilder(args)
             }
         });
 
-        services.AddHostedService<Foreman>();
+        services.AddHostedService<MonitorService>();
     })
     .Build();
 

@@ -25,11 +25,10 @@
         /// <summary>
         /// This is the scanning interval that the directory is checked for new files.
         /// </summary>
-        public double ForemanJobInMilliSeconds { get; set; }
+        public double RescanJobInMilliSeconds { get; set; }
         /// <summary>
         /// This is the amount of time a file is permitted to stay until it is re-enqueued for processing by the workers.
         /// </summary>
-        public double LateFileInMilliSeconds { get; set; }
-
+        public double MaxFileTruancyInMilliSeconds { get; set; }
     }
 }

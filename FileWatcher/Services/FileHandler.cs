@@ -4,8 +4,6 @@ namespace FileWatcher.Services;
 
 public class FileHandler
 {
-    private const string SUFFIX = " (Copy)";
-
     private readonly IProcessor<string> _processor;
 
     private readonly DirectoryInfo _output;
@@ -46,7 +44,7 @@ public class FileHandler
                 break;
             }
 
-            destinationFileName = AppendSuffix(new FileInfo(destinationFullPath), SUFFIX);
+            destinationFileName = AppendSuffix(new FileInfo(destinationFullPath), $"-{Guid.NewGuid}");
         }
     }
 

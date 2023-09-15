@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace FileWatcher.Services;
+namespace FileWatcher.Services.Processors;
 
 public class TextProcessor : IProcessor<string>
 {
