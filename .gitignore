@@ -453,5 +453,4 @@ $RECYCLE.BIN/
 !.vscode/launch.json
 !.vscode/extensions.json
 /FileWatcher/appsettings.Development.json
-/FileWatcher/Input
-/FileWatcher/Output
+/FileWatcher/DevelopmentTesting/*

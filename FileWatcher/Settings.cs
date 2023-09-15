@@ -7,6 +7,10 @@
         /// </summary>
         public bool ReplaceDuplicates { get; set; }
         /// <summary>
+        /// This is whether to reprocess/re-enqueue files that failed when attempted to be processed.
+        /// </summary>
+        public bool ReprocessErrors { get; set; }
+        /// <summary>
         /// This is the file path being monitored for new files.
         /// </summary>
         public string InputPath { get; set; } = null!;
@@ -14,6 +18,10 @@
         /// This is the file path where newly discovered files are moved.
         /// </summary>
         public string OutputPath { get; set; } = null!;
+        /// <summary>
+        /// This is the file path where files containing payloads that the <see cref="Services.Processors.IProcessor{T}"/> failed to process are moved.
+        /// </summary>
+        public string ErrorPath { get; set; } = null!;
         /// <summary>
         /// This is the file extenstion pattern that is checked before moving a newly discovered file.
         /// </summary>

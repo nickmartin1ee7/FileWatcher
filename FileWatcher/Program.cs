@@ -11,11 +11,11 @@ IHost host = Host.CreateDefaultBuilder(args)
                 .Get<Settings>()
                 ?? throw new InvalidOperationException("Settings is missing from configuration"));
 
-        services.AddSingleton<IProcessor<string>, TextProcessor>();
-        services.AddSingleton<FileProcessQueue>();
-        services.AddSingleton<FileHandler>();
-        services.AddSingleton<PathValidator>();
+        services.AddTransient<IProcessor<string>, TextProcessor>();
+        services.AddTransient<FileHandler>();
+        services.AddTransient<PathValidator>();
 
+        services.AddSingleton<FileProcessQueue>();
         services.AddSingleton<FileSystemWatcher>(sp =>
         {
             var settings = sp.GetRequiredService<Settings>();

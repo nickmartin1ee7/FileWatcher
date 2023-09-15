@@ -1,4 +1,4 @@
-namespace FileWatcher.Services;
+namespace FileWatcher.Services.Processors;
 
 public interface IProcessor<in T>
 {

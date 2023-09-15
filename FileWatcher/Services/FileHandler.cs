@@ -1,17 +1,22 @@
 using System.Text;
 
+using FileWatcher.Services.Processors;
+
 namespace FileWatcher.Services;
 
 public class FileHandler
 {
+    private readonly ILogger<FileHandler> _logger;
     private readonly IProcessor<string> _processor;
+    private readonly DirectoryInfo _outputPath;
+    private readonly DirectoryInfo _errorPath;
 
-    private readonly DirectoryInfo _output;
-
-    public FileHandler(Settings settings, IProcessor<string> processor)
+    public FileHandler(ILogger<FileHandler> logger, Settings settings, IProcessor<string> processor)
     {
+        _logger = logger;
         _processor = processor;
-        _output = new DirectoryInfo(settings.OutputPath);
+        _outputPath = new DirectoryInfo(settings.OutputPath);
+        _errorPath = new DirectoryInfo(settings.ErrorPath);
     }
 
     /// <summary>
@@ -21,13 +26,29 @@ public class FileHandler
     /// <param name="replaceDuplicates">Whether to overwrite the file if it already exists.</param>
     public async Task HandleAsync(FileInfo file, bool replaceDuplicates)
     {
-        // Execute business logic
-        await _processor.ExecuteAsync(await File.ReadAllTextAsync(file.FullName));
+        try
+        {
+            // Execute business logic
+            await _processor.ExecuteAsync(await File.ReadAllTextAsync(file.FullName));
+        }
+        catch (Exception)
+        {
+            // Move failed processed file to error path
+            MoveFinishedFile(file, _errorPath, replaceDuplicates);
 
+            throw;
+        }
+
+        // Move successully processed file to output path
+        MoveFinishedFile(file, _outputPath, replaceDuplicates);
+    }
+
+    private void MoveFinishedFile(FileInfo file, DirectoryInfo destinationPath, bool replaceDuplicates)
+    {
         // Overwrite
         if (replaceDuplicates)
         {
-            file.MoveTo(Path.Combine(_output.FullName, file.Name), replaceDuplicates);
+            file.MoveTo(Path.Combine(destinationPath.FullName, file.Name), replaceDuplicates);
             return;
         }
 
@@ -36,7 +57,7 @@ public class FileHandler
 
         while (true)
         {
-            var destinationFullPath = Path.Combine(_output.FullName, destinationFileName);
+            var destinationFullPath = Path.Combine(destinationPath.FullName, destinationFileName);
 
             if (!File.Exists(destinationFullPath))
             {
@@ -44,10 +65,9 @@ public class FileHandler
                 break;
             }
 
-            destinationFileName = AppendSuffix(new FileInfo(destinationFullPath), $"-{Guid.NewGuid}");
+            destinationFileName = AppendSuffix(new FileInfo(destinationFullPath), $"-{Guid.NewGuid()}");
         }
     }
-
 
     private string AppendSuffix(FileInfo file, string suffix)
     {
